@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <limits.h>
 
 #include "asserts.h"
 // Necessary due to static functions in game.c
@@ -97,41 +98,101 @@ bool test_is_vowel() {
 /* Task 4.1 */
 
 bool test_is_tail() {
-  // TODO: Implement this function.
+  for (int i = 0; i < 256; i++) {
+    char c = (char)i;
+    bool expected = i == 'w' || i == 'a' || i == 's' || i == 'd';
+    if (is_tail(c) != expected) return false;
+  }
   return true;
 }
 
 bool test_is_head() {
-  // TODO: Implement this function.
+  for (int i = 0; i < 256; i++) {
+    bool expected = i == 'W' || i == 'A' || i == 'S' || i == 'D' || i == 'x';
+    if (is_head((char)i) != expected) return false;
+  }
   return true;
 }
 
 bool test_is_snake() {
-  // TODO: Implement this function.
+  for (int i = 0; i < 256; i++) {
+    const unsigned char chars[] = {'w','a','s','d','^','<','v','>','W','A','S','D','x'};
+    bool expected = false;
+    for (size_t j = 0; j < sizeof(chars); j++) if (i == chars[j]) expected = true;
+    if (is_snake((char)i) != expected) return false;
+  }
   return true;
 }
 
 bool test_body_to_tail() {
-  // TODO: Implement this function.
+  const char in[] = "^<v>", out[] = "wasd";
+  for (size_t i = 0; i < 4; i++) if (body_to_tail(in[i]) != out[i]) return false;
   return true;
 }
 
 bool test_head_to_body() {
-  // TODO: Implement this function.
+  const char in[] = "WASD", out[] = "^<v>";
+  for (size_t i = 0; i < 4; i++) if (head_to_body(in[i]) != out[i]) return false;
   return true;
 }
 
 bool test_get_next_row() {
-  // TODO: Implement this function.
+  const unsigned int positions[] = {0, 1, 17, UINT_MAX - 1, UINT_MAX};
+  for (size_t j = 0; j < sizeof(positions) / sizeof(positions[0]); j++) {
+    for (int i = 0; i < 256; i++) {
+      unsigned int expected = positions[j];
+      if (i == 'v' || i == 's' || i == 'S') expected++;
+      if (i == '^' || i == 'w' || i == 'W') expected--;
+      if (get_next_row(positions[j], (char)i) != expected) return false;
+    }
+  }
   return true;
 }
 
 bool test_get_next_col() {
-  // TODO: Implement this function.
+  const unsigned int positions[] = {0, 1, 17, UINT_MAX - 1, UINT_MAX};
+  for (size_t j = 0; j < sizeof(positions) / sizeof(positions[0]); j++) {
+    for (int i = 0; i < 256; i++) {
+      unsigned int expected = positions[j];
+      if (i == '>' || i == 'd' || i == 'D') expected++;
+      if (i == '<' || i == 'a' || i == 'A') expected--;
+      if (get_next_col(positions[j], (char)i) != expected) return false;
+    }
+  }
+  return true;
+}
+
+/* Independent allocation/stream edge fixtures beyond the original unit tests. */
+static bool test_stream_edges(void) {
+  FILE *fp = tmpfile();
+  if (!fp) return false;
+  for (unsigned int i = 0; i < 1048576; i++) fputc('Q', fp);
+  fputs("\nlast-without-newline", fp); rewind(fp);
+  char *line = read_line(fp);
+  if (!line || strlen(line) != 1048577 || line[1048576] != '\n') return false;
+  for (size_t i = 0; i < 1048576; i++) if (line[i] != 'Q') return false;
+  free(line); line = read_line(fp);
+  if (!line || strcmp(line, "last-without-newline")) return false;
+  free(line); if (read_line(fp) != NULL) return false;
+  fclose(fp);
+  fp = tmpfile(); if (!fp) return false;
+  game_t *empty = load_board(fp); fclose(fp);
+  if (!empty || empty->num_rows || empty->num_snakes || empty->snakes) return false;
+  if (!initialize_snakes(empty)) return false;
+  free_game(empty);
+  fp = tmpfile(); if (!fp) return false;
+  fputs("#########\n# d>D   #\n# d>>D  ###\n###########\n", fp); rewind(fp);
+  game_t *game = load_board(fp); fclose(fp);
+  if (!game || game->num_rows != 4 || game->snakes || game->num_snakes) return false;
+  if (!initialize_snakes(game) || game->num_snakes != 2) return false;
+  if (game->snakes[0].tail_row != 1 || game->snakes[0].head_col != 4 ||
+      game->snakes[1].tail_row != 2 || game->snakes[1].head_col != 5) return false;
+  free_game(game); free_game(NULL);
   return true;
 }
 
 bool test_customs() {
+  if (!test_stream_edges()) return false;
   if (!test_greater_than_forty_two()) {
     printf("%s\n", "test_greater_than_forty_two failed.");
     return false;
@@ -175,7 +236,7 @@ int main(int argc, char *argv[]) {
   init_colors();
 
   if (!test_and_print("custom", test_customs)) {
-    return 0;
+    return 1;
   }
 
   return 0;

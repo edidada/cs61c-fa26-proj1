@@ -1,0 +1,20 @@
+name: CS61C Project1 snek
+on:
+  push:
+    branches: [edidada/proj1]
+  workflow_dispatch:
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - run: sudo apt-get update && sudo apt-get install -y valgrind
+      - run: bash scripts/verify_proj1.sh
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: proj1-results
+          path: test-results

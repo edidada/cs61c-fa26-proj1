@@ -41,30 +41,27 @@ int main(int argc, char *argv[]) {
 
   /* Task 7 */
 
-  // Read board from file, or create default board
+  FILE *input = NULL;
   if (in_filename != NULL) {
-    // TODO: Load the board from in_filename
-    // TODO: If the file doesn't exist, return -1
-    // TODO: Then call initialize_snakes on the game you made
-    // TODO: close file pointer
+    input = fopen(in_filename, "r");
+    if (!input) return -1;
+    game = load_board(input);
+    fclose(input);
   } else if (io_stdin) {
-    // TODO: Load the board from stdin
-    // TODO: Then call initialize_snakes on the game you made
+    game = load_board(stdin);
   } else {
-    // TODO: Create default game
+    game = create_default_game();
   }
-
-  // TODO: Update game. Use the deterministic_food function
-  // (already implemented in snake_utils.h) to add food.
-
-  // Write updated board to file or stdout
-  if (out_filename != NULL) {
-    // TODO: Save the board to out_filename
-  } else {
-    // TODO: Print the board to stdout
+  if (!game) return -1;
+  if ((in_filename != NULL || io_stdin) && !initialize_snakes(game)) {
+    free_game(game); return -1;
   }
-
-  // TODO: Free the game
-
-  return 0;
+  update_game(game, deterministic_food);
+  FILE *output = out_filename ? fopen(out_filename, "w") : stdout;
+  if (!output) { free_game(game); return -1; }
+  print_board(game, output);
+  int failed = ferror(output);
+  if (out_filename && fclose(output)) failed = 1;
+  free_game(game);
+  return failed ? -1 : 0;
 }
